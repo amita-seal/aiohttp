@@ -61,22 +61,45 @@ interface and provides a place to store your database connections or any
 other resource you want to share between handlers.
 ::
 
-    db_key = web.AppKey("db_key", DB)
-
     async def go(request):
-        db = request.app[db_key]
+        db = request.app['db']
         cursor = await db.cursor()
         await cursor.execute('SELECT 42')
         # ...
         return web.Response(status=200, text='ok')
 
 
-    async def init_app():
-        app = Application()
+    async def init_app(loop):
+        app = Application(loop=loop)
         db = await create_connection(user='user', password='123')
-        app[db_key] = db
+        app['db'] = db
         app.router.add_get('/', go)
         return app
+
+
+Why is Python 3.5.3 the lowest supported version?
+-------------------------------------------------
+
+Python 3.5.2 fixes the protocol for async iterators: ``__aiter__()`` is
+not a coroutine but a regular function.
+
+Python 3.5.3 has a more important change: :func:`asyncio.get_event_loop`
+returns the running loop instance if called from a coroutine.
+Previously it returned a *default* loop, set by
+:func:`asyncio.set_event_loop`.
+
+Previous to Python 3.5.3,
+:func:`asyncio.get_event_loop` was not reliable, so users were
+forced to explicitly pass the event loop instance everywhere.
+If a future object were created for one event loop
+(e.g. the default loop) but a coroutine was run by another loop, the coroutine
+was never awaited. As a result, the task would hang.
+
+Keep in mind that every internal ``await`` expression either passed
+instantly or paused, waiting for a future.
+
+It's extremely important that all tasks (coroutine runners) and
+futures use the same event loop.
 
 
 How can middleware store data for web handlers to use?
@@ -120,10 +143,12 @@ However, other tasks may use the same WebSocket object for sending data to
 peers. ::
 
     async def handler(request):
+
         ws = web.WebSocketResponse()
         await ws.prepare(request)
-        task = asyncio.create_task(
-            read_subscription(ws, request.app[redis_key]))
+        task = request.app.loop.create_task(
+            read_subscription(ws,
+                              request.app['redis']))
         try:
             async for msg in ws:
                 # handle incoming messages
@@ -138,8 +163,8 @@ peers. ::
 
         try:
             async for msg in channel.iter():
-                answer = process_the_message(msg)  # your function here
-                await ws.send_str(answer)
+                answer = process message(msg)
+                ws.send_str(answer)
         finally:
             await redis.unsubscribe('channel:1')
 
@@ -166,12 +191,12 @@ and call :meth:`aiohttp.web.WebSocketResponse.close` on all of them in
         ws = web.WebSocketResponse()
         user_id = authenticate_user(request)
         await ws.prepare(request)
-        request.app[websockets_key][user_id].add(ws)
+        request.app['websockets'][user_id].add(ws)
         try:
             async for msg in ws:
                 ws.send_str(msg.data)
         finally:
-            request.app[websockets_key][user_id].remove(ws)
+            request.app['websockets'][user_id].remove(ws)
 
         return ws
 
@@ -181,10 +206,10 @@ and call :meth:`aiohttp.web.WebSocketResponse.close` on all of them in
         user_id = authenticate_user(request)
 
         ws_closers = [ws.close()
-                      for ws in request.app[websockets_key][user_id]
+                      for ws in request.app['websockets'][user_id]
                       if not ws.closed]
 
-        # Watch out, this will keep us from returning the response
+        # Watch out, this will keep us from returing the response
         # until all are closed
         ws_closers and await asyncio.gather(*ws_closers)
 
@@ -193,10 +218,10 @@ and call :meth:`aiohttp.web.WebSocketResponse.close` on all of them in
 
     def main():
         loop = asyncio.get_event_loop()
-        app = web.Application()
+        app = web.Application(loop=loop)
         app.router.add_route('GET', '/echo', echo_handler)
         app.router.add_route('POST', '/logout', logout_handler)
-        app[websockets_key] = defaultdict(set)
+        app['websockets'] = defaultdict(set)
         web.run_app(app, host='localhost', port=8080)
 
 
@@ -206,7 +231,7 @@ How do I make a request from a specific IP address?
 If your system has several IP interfaces, you may choose one which will
 be used used to bind a socket locally::
 
-    conn = aiohttp.TCPConnector(local_addr=('127.0.0.1', 0))
+    conn = aiohttp.TCPConnector(local_addr=('127.0.0.1', 0), loop=loop)
     async with aiohttp.ClientSession(connector=conn) as session:
         ...
 
@@ -248,7 +273,7 @@ All backward incompatible changes are explicitly marked in
 How do I enable gzip compression globally for my entire application?
 --------------------------------------------------------------------
 
-It's impossible. Choosing what to compress and what not to compress
+It's impossible. Choosing what to compress and what not to compress is
 is a tricky matter.
 
 If you need global compression, write a custom middleware. Or
@@ -266,7 +291,7 @@ Sessions save cookies internally. If you don't need cookie processing,
 use :class:`aiohttp.DummyCookieJar`. If you need separate cookies
 for different http calls but process them in logical chains, use a single
 :class:`aiohttp.TCPConnector` with separate
-client sessions and ``connector_owner=False``.
+client sessions and ``own_connector=False``.
 
 
 How do I access database connections from a subapplication?
@@ -278,7 +303,7 @@ deliberate choice.
 A subapplication is an isolated unit by design. If you need to share a
 database object, do it explicitly::
 
-   subapp[db_key] = mainapp[db_key]
+   subapp['db'] = mainapp['db']
    mainapp.add_subapp('/prefix', subapp)
 
 
@@ -300,12 +325,12 @@ operations::
         await resp.write_eof()
 
         # increase the pong count
-        request.app[db_key].inc_pong()
+        APP['db'].inc_pong()
 
         return resp
 
 A :class:`aiohttp.web.Response` object must be returned. This is
-required by aiohttp web contracts, even though the response has
+required by aiohttp web contracts, even though the response
 already been sent.
 
 
@@ -328,6 +353,7 @@ response::
         # don't do this!
         cached = web.Response(status=200, text='Hi, I am cached!')
 
+        @web.middleware
         async def middleware(request, handler):
             # ignoring response for the sake of this example
             _res = handler(request)

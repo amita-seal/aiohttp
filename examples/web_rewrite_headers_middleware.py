@@ -1,27 +1,29 @@
 #!/usr/bin/env python3
-"""Example for rewriting response headers by middleware."""
+"""
+Example for rewriting response headers by middleware.
+"""
 
 from aiohttp import web
-from aiohttp.typedefs import Handler
 
 
-async def handler(request: web.Request) -> web.StreamResponse:
+async def handler(request):
     return web.Response(text="Everything is fine")
 
 
-async def middleware(request: web.Request, handler: Handler) -> web.StreamResponse:
+@web.middleware
+async def middleware(request, handler):
     try:
         response = await handler(request)
     except web.HTTPException as exc:
         raise exc
     if not response.prepared:
-        response.headers["SERVER"] = "Secured Server Software"
+        response.headers['SERVER'] = "Secured Server Software"
     return response
 
 
-def init() -> web.Application:
+def init():
     app = web.Application(middlewares=[middleware])
-    app.router.add_get("/", handler)
+    app.router.add_get('/', handler)
     return app
 
 

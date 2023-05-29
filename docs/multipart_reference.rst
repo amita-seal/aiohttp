@@ -7,7 +7,7 @@ Multipart reference
 
 .. class:: MultipartResponseWrapper(resp, stream)
 
-   Wrapper around the :class:`MultipartReader` to take care about
+   Wrapper around the :class:`MultipartBodyReader` to take care about
    underlying connection and close it when it needs in.
 
 
@@ -119,7 +119,7 @@ Multipart reference
 
       Readonly :class:`str` property.
 
-   .. attribute:: filename
+   .. attribute:: name
 
       A field *filename* specified in ``Content-Disposition`` header or ``None``
       if missed or header is malformed.
@@ -135,7 +135,7 @@ Multipart reference
 
       Constructs reader instance from HTTP response.
 
-      :param response: :class:`~aiohttp.ClientResponse` instance
+      :param response: :class:`~aiohttp.client.ClientResponse` instance
 
    .. method:: at_eof()
 

@@ -1,44 +1,44 @@
 #!/usr/bin/env python3
-"""Example for aiohttp.web basic server with cookies."""
+"""Example for aiohttp.web basic server with cookies.
+"""
 
 from pprint import pformat
-from typing import NoReturn
 
 from aiohttp import web
 
-tmpl = """\
+tmpl = '''\
 <html>
     <body>
         <a href="/login">Login</a><br/>
         <a href="/logout">Logout</a><br/>
         <pre>{}</pre>
     </body>
-</html>"""
+</html>'''
 
 
-async def root(request: web.Request) -> web.StreamResponse:
-    resp = web.Response(content_type="text/html")
+async def root(request):
+    resp = web.Response(content_type='text/html')
     resp.text = tmpl.format(pformat(request.cookies))
     return resp
 
 
-async def login(request: web.Request) -> NoReturn:
-    exc = web.HTTPFound(location="/")
-    exc.set_cookie("AUTH", "secret")
-    raise exc
+async def login(request):
+    resp = web.HTTPFound(location='/')
+    resp.set_cookie('AUTH', 'secret')
+    return resp
 
 
-async def logout(request: web.Request) -> NoReturn:
-    exc = web.HTTPFound(location="/")
-    exc.del_cookie("AUTH")
-    raise exc
+async def logout(request):
+    resp = web.HTTPFound(location='/')
+    resp.del_cookie('AUTH')
+    return resp
 
 
-def init() -> web.Application:
-    app = web.Application()
-    app.router.add_get("/", root)
-    app.router.add_get("/login", login)
-    app.router.add_get("/logout", logout)
+def init(loop):
+    app = web.Application(loop=loop)
+    app.router.add_get('/', root)
+    app.router.add_get('/login', login)
+    app.router.add_get('/logout', logout)
     return app
 
 

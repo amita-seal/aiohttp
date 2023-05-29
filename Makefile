@@ -1,145 +1,87 @@
 # Some simple testing tasks (sorry, UNIX only).
 
-to-hash-one = $(dir $1).hash/$(addsuffix .hash,$(notdir $1))
-to-hash = $(foreach fname,$1,$(call to-hash-one,$(fname)))
+PYXS = $(wildcard aiohttp/*.pyx)
+SRC = aiohttp examples tests setup.py
 
-CYS := $(wildcard aiohttp/*.pyx) $(wildcard aiohttp/*.pyi)  $(wildcard aiohttp/*.pxd)
-PYXS := $(wildcard aiohttp/*.pyx)
-CS := $(wildcard aiohttp/*.c)
-PYS := $(wildcard aiohttp/*.py)
-IN := doc-spelling lint cython dev
-ALLS := $(sort $(CYS) $(CS) $(PYS) $(REQS))
-
-
-.PHONY: all
 all: test
 
-tst:
-	@echo $(call to-hash,requirements/cython.txt)
-	@echo $(call to-hash,aiohttp/%.pyx)
+.install-cython:
+	pip install -r requirements/cython.txt
+	touch .install-cython
 
-
-# Recipe from https://www.cmcrossroads.com/article/rebuilding-when-files-checksum-changes
-FORCE:
-
-# check_sum.py works perfectly fine but slow when called for every file from $(ALLS)
-# (perhaps even several times for each file).
-# That is why much less readable but faster solution exists
-ifneq (, $(shell command -v sha256sum))
-%.hash: FORCE
-	$(eval $@_ABS := $(abspath $@))
-	$(eval $@_NAME := $($@_ABS))
-	$(eval $@_HASHDIR := $(dir $($@_ABS)))
-	$(eval $@_TMP := $($@_HASHDIR)../$(notdir $($@_ABS)))
-	$(eval $@_ORIG := $(subst /.hash/../,/,$(basename $($@_TMP))))
-	@#echo ==== $($@_ABS) $($@_HASHDIR) $($@_NAME) $($@_TMP) $($@_ORIG)
-	@if ! (sha256sum --check $($@_ABS) 1>/dev/null 2>/dev/null); then \
-	  mkdir -p $($@_HASHDIR); \
-	  echo re-hash $($@_ORIG); \
-	  sha256sum $($@_ORIG) > $($@_ABS); \
-	fi
-else
-%.hash: FORCE
-	@./tools/check_sum.py $@ # --debug
-endif
-
-# Enumerate intermediate files to don't remove them automatically.
-.SECONDARY: $(call to-hash,$(ALLS))
-
-.update-pip:
-	@python -m pip install --upgrade pip
-
-.install-cython: .update-pip $(call to-hash,requirements/cython.txt)
-	@python -m pip install -r requirements/cython.txt -c requirements/constraints.txt
-	@touch .install-cython
-
-aiohttp/_find_header.c: $(call to-hash,aiohttp/hdrs.py ./tools/gen.py)
-	./tools/gen.py
-
-# _find_headers generator creates _headers.pyi as well
-aiohttp/%.c: aiohttp/%.pyx $(call to-hash,$(CYS)) aiohttp/_find_header.c
+aiohttp/%.c: aiohttp/%.pyx
 	cython -3 -o $@ $< -I aiohttp
 
-vendor/llhttp/node_modules: vendor/llhttp/package.json
-	cd vendor/llhttp; npm install
-
-.llhttp-gen: vendor/llhttp/node_modules
-	$(MAKE) -C vendor/llhttp generate
-	@touch .llhttp-gen
-
-.PHONY: generate-llhttp
-generate-llhttp: .llhttp-gen
-
-.PHONY: cythonize
 cythonize: .install-cython $(PYXS:.pyx=.c)
 
-.install-deps: .install-cython $(PYXS:.pyx=.c) $(call to-hash,$(CYS) $(REQS))
-	@python -m pip install -r requirements/dev.txt -c requirements/constraints.txt
+.install-deps: cythonize $(shell find requirements -type f)
+	pip install -r requirements/dev.txt
 	@touch .install-deps
 
-.PHONY: lint
-lint: fmt mypy
 
-.PHONY: fmt format
-fmt format:
-	python -m pre_commit run --all-files --show-diff-on-failure
+isort:
+	isort -rc $(SRC)
 
-.PHONY: mypy
-mypy:
-	mypy
+flake: .flake
 
-.develop: .install-deps generate-llhttp $(call to-hash,$(PYS) $(CYS) $(CS))
-	python -m pip install -e . -c requirements/constraints.txt
+.flake: .install-deps $(shell find aiohttp -type f) \
+                      $(shell find tests -type f) \
+                      $(shell find examples -type f)
+	flake8 aiohttp examples tests
+	python setup.py check -rms
+	@if ! isort -c -rc aiohttp tests examples; then \
+            echo "Import sort errors, run 'make isort' to fix them!!!"; \
+            isort --diff -rc aiohttp tests examples; \
+            false; \
+	fi
+	@if ! LC_ALL=C sort -c CONTRIBUTORS.txt; then \
+            echo "CONTRIBUTORS.txt sort error"; \
+	fi
+	@touch .flake
+
+
+flake8:
+	flake8 $(SRC)
+
+mypy: .flake
+	mypy aiohttp
+
+isort-check:
+	@if ! isort -rc --check-only $(SRC); then \
+            echo "Import sort errors, run 'make isort' to fix them!!!"; \
+            isort --diff -rc $(SRC); \
+            false; \
+	fi
+
+check_changes:
+	./tools/check_changes.py
+
+.develop: .install-deps $(shell find aiohttp -type f) .flake check_changes mypy
+	# pip install -e .
 	@touch .develop
 
-.PHONY: test
 test: .develop
-	@pytest -q
+	@pytest -c pytest.ci.ini -q
 
-.PHONY: vtest
 vtest: .develop
-	@pytest -s -v
-	@python -X dev -m pytest --cov-append -s -v -m dev_mode
+	@pytest -c pytest.ci.ini -s -v
 
-.PHONY: vvtest
-vvtest: .develop
-	@pytest -vv
-	@python -X dev -m pytest --cov-append -s -vv -m dev_mode
+cov cover coverage:
+	tox
 
-.PHONY: cov-dev
 cov-dev: .develop
-	@pytest --cov-report=html
-	@echo "xdg-open file://`pwd`/htmlcov/index.html"
+	@pytest -c pytest.ci.ini --cov-report=html
+	@echo "open file://`pwd`/htmlcov/index.html"
 
+cov-ci-run: .develop
+	@echo "Regular run"
+	@pytest -c pytest.ci.ini --cov-report=html
 
-define run_tests_in_docker
-	DOCKER_BUILDKIT=1 docker build --build-arg PYTHON_VERSION=$(1) --build-arg AIOHTTP_NO_EXTENSIONS=$(2) -t "aiohttp-test-$(1)-$(2)" -f tools/testing/Dockerfile .
-	docker run --rm -ti -v `pwd`:/src -w /src "aiohttp-test-$(1)-$(2)" $(TEST_SPEC)
-endef
+cov-dev-full: cov-ci-run
+	@echo "open file://`pwd`/htmlcov/index.html"
 
-.PHONY: test-3.7-no-extensions test-3.7 test-3.8-no-extensions test-3.8 test-3.9-no-extensions test-3.9 test-3.10-no-extensions test-3.10
-test-3.7-no-extensions:
-	$(call run_tests_in_docker,3.7,y)
-test-3.7:
-	$(call run_tests_in_docker,3.7,n)
-test-3.8-no-extensions:
-	$(call run_tests_in_docker,3.8,y)
-test-3.8:
-	$(call run_tests_in_docker,3.8,n)
-test-3.9-no-extensions:
-	$(call run_tests_in_docker,3.9,y)
-test-3.9:
-	$(call run_tests_in_docker,3.9,n)
-test-3.10-no-extensions:
-	$(call run_tests_in_docker,3.10,y)
-test-3.10:
-	$(call run_tests_in_docker,3.10,n)
-
-.PHONY: clean
 clean:
 	@rm -rf `find . -name __pycache__`
-	@rm -rf `find . -name .hash`
-	@rm -rf `find . -name .md5`  # old styling
 	@rm -f `find . -type f -name '*.py[co]' `
 	@rm -f `find . -type f -name '*~' `
 	@rm -f `find . -type f -name '.*~' `
@@ -147,49 +89,47 @@ clean:
 	@rm -f `find . -type f -name '#*#' `
 	@rm -f `find . -type f -name '*.orig' `
 	@rm -f `find . -type f -name '*.rej' `
-	@rm -f `find . -type f -name '*.md5' `  # old styling
 	@rm -f .coverage
 	@rm -rf htmlcov
 	@rm -rf build
 	@rm -rf cover
 	@make -C docs clean
 	@python setup.py clean
-	@rm -f aiohttp/*.so
-	@rm -f aiohttp/*.pyd
-	@rm -f aiohttp/*.html
+	@rm -f aiohttp/_frozenlist.html
 	@rm -f aiohttp/_frozenlist.c
-	@rm -f aiohttp/_find_header.c
+	@rm -f aiohttp/_frozenlist.*.so
+	@rm -f aiohttp/_frozenlist.*.pyd
+	@rm -f aiohttp/_http_parser.html
 	@rm -f aiohttp/_http_parser.c
-	@rm -f aiohttp/_http_writer.c
+	@rm -f aiohttp/_http_parser.*.so
+	@rm -f aiohttp/_http_parser.*.pyd
+	@rm -f aiohttp/_multidict.html
+	@rm -f aiohttp/_multidict.c
+	@rm -f aiohttp/_multidict.*.so
+	@rm -f aiohttp/_multidict.*.pyd
+	@rm -f aiohttp/_websocket.html
 	@rm -f aiohttp/_websocket.c
+	@rm -f aiohttp/_websocket.*.so
+	@rm -f aiohttp/_websocket.*.pyd
+	@rm -f aiohttp/_parser.html
+	@rm -f aiohttp/_parser.c
+	@rm -f aiohttp/_parser.*.so
+	@rm -f aiohttp/_parser.*.pyd
 	@rm -rf .tox
 	@rm -f .develop
 	@rm -f .flake
-	@rm -rf aiohttp.egg-info
 	@rm -f .install-deps
-	@rm -f .install-cython
-	@rm -rf vendor/llhttp/node_modules
-	@rm -f .llhttp-gen
-	@$(MAKE) -C vendor/llhttp clean
+	@rm -rf aiohttp.egg-info
 
-.PHONY: doc
 doc:
-	@make -C docs html SPHINXOPTS="-W --keep-going -n -E"
+	@make -C docs html SPHINXOPTS="-W -E"
 	@echo "open file://`pwd`/docs/_build/html/index.html"
 
-.PHONY: doc-spelling
 doc-spelling:
-	@make -C docs spelling SPHINXOPTS="-W --keep-going -n -E"
+	@make -C docs spelling SPHINXOPTS="-W -E"
 
-.PHONY: compile-deps
-compile-deps: .update-pip $(REQS)
-	pip-compile --no-header --allow-unsafe -q --strip-extras \
-		-o requirements/constraints.txt \
-		requirements/constraints.in
+install:
+	@pip install -U 'pip'
+	@pip install -Ur requirements/dev.txt
 
-.PHONY: install
-install: .update-pip
-	@python -m pip install -r requirements/dev.txt -c requirements/constraints.txt
-
-.PHONY: install-dev
-install-dev: .develop
+.PHONY: all build flake test vtest cov clean doc mypy

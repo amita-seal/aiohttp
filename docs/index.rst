@@ -22,7 +22,7 @@ Key Features
   :ref:`Client WebSockets <aiohttp-client-websockets>` out-of-the-box
   without the Callback Hell.
 - Web-server has :ref:`aiohttp-web-middlewares`,
-  :ref:`aiohttp-web-signals` and plugable routing.
+  :ref:`aiohttp-web-signals` and pluggable routing.
 
 .. _aiohttp-installation:
 
@@ -34,13 +34,11 @@ Library Installation
    $ pip install aiohttp
 
 You may want to install *optional* :term:`cchardet` library as faster
-replacement for :term:`charset-normalizer`:
+replacement for :term:`chardet`:
 
 .. code-block:: bash
 
    $ pip install cchardet
-
-.. include:: _snippets/cchardet-unmaintained-admonition.rst
 
 For speeding up DNS resolving by client API you may install
 :term:`aiodns` as well.
@@ -53,8 +51,8 @@ This option is highly recommended:
 Installing speedups altogether
 ------------------------------
 
-The following will get you ``aiohttp`` along with :term:`cchardet`,
-:term:`aiodns` and ``Brotli`` in one bundle. No need to type
+The following will get you ``aiohttp`` along with :term:`chardet`,
+:term:`aiodns` and ``brotlipy`` in one bundle. No need to type
 separate commands anymore!
 
 .. code-block:: bash
@@ -64,42 +62,25 @@ separate commands anymore!
 Getting Started
 ===============
 
-Client example
---------------
+Client example::
 
-.. code-block:: python
+    import aiohttp
+    import asyncio
 
-  import aiohttp
-  import asyncio
+    async def fetch(session, url):
+        async with session.get(url) as response:
+            return await response.text()
 
-  async def main():
+    async def main():
+        async with aiohttp.ClientSession() as session:
+            html = await fetch(session, 'http://python.org')
+            print(html)
 
-      async with aiohttp.ClientSession() as session:
-          async with session.get('http://python.org') as response:
+    if __name__ == '__main__':
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(main())
 
-              print("Status:", response.status)
-              print("Content-type:", response.headers['content-type'])
-
-              html = await response.text()
-              print("Body:", html[:15], "...")
-
-  loop = asyncio.get_event_loop()
-  loop.run_until_complete(main())
-
-This prints:
-
-.. code-block:: text
-
-    Status: 200
-    Content-type: text/html; charset=utf-8
-    Body: <!doctype html> ...
-
-Coming from :term:`requests` ? Read :ref:`why we need so many lines <aiohttp-request-lifecycle>`.
-
-Server example:
-----------------
-
-.. code-block:: python
+Server example::
 
     from aiohttp import web
 
@@ -118,6 +99,7 @@ Server example:
 
 For more information please visit :ref:`aiohttp-client` and
 :ref:`aiohttp-web` pages.
+
 
 What's new in aiohttp 3?
 ========================
@@ -141,19 +123,21 @@ Please feel free to file an issue on the `bug tracker
 <https://github.com/aio-libs/aiohttp/issues>`_ if you have found a bug
 or have some suggestion in order to improve the library.
 
-The library uses `Azure Pipelines <https://dev.azure.com/aio-libs/aiohttp/_build>`_ for
+The library uses `Travis <https://travis-ci.com/aio-libs/aiohttp>`_ for
 Continuous Integration.
 
 
 Dependencies
 ============
 
+- Python 3.5.3+
 - *async_timeout*
-- *charset-normalizer*
+- *attrs*
+- *chardet*
 - *multidict*
 - *yarl*
 - *Optional* :term:`cchardet` as faster replacement for
-  :term:`charset-normalizer`.
+  :term:`chardet`.
 
   Install it explicitly via:
 
@@ -168,17 +152,11 @@ Dependencies
 
      $ pip install aiodns
 
-- *Optional* :term:`Brotli` for brotli (:rfc:`7932`) client compression support.
-
-  .. code-block:: bash
-
-     $ pip install Brotli
-
 
 Communication channels
 ======================
 
-*aio-libs Discussions*: https://github.com/aio-libs/aiohttp/discussions
+*aio-libs* google group: https://groups.google.com/forum/#!forum/aio-libs
 
 Feel free to post your questions and ideas here.
 
@@ -212,17 +190,18 @@ Policy for Backward Incompatible Changes
 
 *aiohttp* keeps backward compatibility.
 
-When a new release is published that deprecates a *Public API* (method, class,
-function argument, etc.), the library will guarantee its usage for at least
-a year and half from the date of release.
+After deprecating some *Public API* (method, class, function argument,
+etc.) the library guaranties the usage of *deprecated API* is still
+allowed at least for a year and half after publishing new release with
+deprecation.
 
-Deprecated APIs are reflected in their documentation, and their use will raise
+All deprecations are reflected in documentation and raises
 :exc:`DeprecationWarning`.
 
-However, if there is a strong reason, we may be forced to break this guarantee.
-The most likely reason would be a critical bug, such as a security issue, which
-cannot be solved without a major API change. We are working hard to keep these
-breaking changes as rare as possible.
+Sometimes we are forced to break the own rule for sake of very strong
+reason.  Most likely the reason is a critical bug which cannot be
+solved without major API change, but we are working hard for keeping
+these changes as rare as possible.
 
 
 Table Of Contents

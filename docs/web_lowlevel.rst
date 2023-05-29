@@ -1,9 +1,9 @@
-.. currentmodule:: aiohttp.web
-
 .. _aiohttp-web-lowlevel:
 
 Low Level Server
 ================
+
+.. currentmodule:: aiohttp.web
 
 
 This topic describes :mod:`aiohttp.web` based *low level* API.
@@ -11,15 +11,15 @@ This topic describes :mod:`aiohttp.web` based *low level* API.
 Abstract
 --------
 
-Sometimes users don't need high-level concepts introduced in
+Sometimes user don't need high-level concepts introduced in
 :ref:`aiohttp-web`: applications, routers, middlewares and signals.
 
-All that may be needed is supporting an asynchronous callable which accepts a
+All what is needed is supporting asynchronous callable which accepts a
 request and returns a response object.
 
 This is done by introducing :class:`aiohttp.web.Server` class which
 serves a *protocol factory* role for
-:meth:`asyncio.loop.create_server` and bridges data
+:meth:`asyncio.AbstractEventLoop.create_server` and bridges data
 stream to *web handler* and sends result back.
 
 

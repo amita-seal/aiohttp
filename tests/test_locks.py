@@ -1,6 +1,5 @@
-# Tests of custom aiohttp locks implementations
+"""Tests of custom aiohttp locks implementations"""
 import asyncio
-from typing import Any, Union
 
 import pytest
 
@@ -8,10 +7,11 @@ from aiohttp.locks import EventResultOrError
 
 
 class TestEventResultOrError:
-    async def test_set_exception(self, loop: Any) -> None:
+
+    async def test_set_exception(self, loop) -> None:
         ev = EventResultOrError(loop=loop)
 
-        async def c() -> Union[int, Exception]:
+        async def c():
             try:
                 await ev.wait()
             except Exception as e:
@@ -19,32 +19,32 @@ class TestEventResultOrError:
             return 1
 
         t = loop.create_task(c())
-        await asyncio.sleep(0)
+        await asyncio.sleep(0, loop=loop)
         e = Exception()
         ev.set(exc=e)
         assert (await t) == e
 
-    async def test_set(self, loop: Any) -> None:
+    async def test_set(self, loop) -> None:
         ev = EventResultOrError(loop=loop)
 
-        async def c() -> int:
+        async def c():
             await ev.wait()
             return 1
 
         t = loop.create_task(c())
-        await asyncio.sleep(0)
+        await asyncio.sleep(0, loop=loop)
         ev.set()
         assert (await t) == 1
 
-    async def test_cancel_waiters(self, loop: Any) -> None:
+    async def test_cancel_waiters(self, loop) -> None:
         ev = EventResultOrError(loop=loop)
 
-        async def c() -> None:
+        async def c():
             await ev.wait()
 
         t1 = loop.create_task(c())
         t2 = loop.create_task(c())
-        await asyncio.sleep(0)
+        await asyncio.sleep(0, loop=loop)
         ev.cancel()
         ev.set()
 

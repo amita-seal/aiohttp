@@ -1,11 +1,12 @@
-.. currentmodule:: aiohttp
-
 .. _aiohttp-utilities:
 
 Utilities
 =========
 
 Miscellaneous API Shared between Client And Server.
+
+.. currentmodule:: aiohttp
+
 
 .. toctree::
    :name: utilities
@@ -14,5 +15,6 @@ Miscellaneous API Shared between Client And Server.
    multipart
    multipart_reference
    streams
+   signals
    structures
    websocket_utilities

@@ -1,62 +1,56 @@
 #!/usr/bin/env python3
-"""Example for aiohttp.web websocket server."""
-
-# The extra strict mypy settings are here to help test that `Application[AppKey()]`
-# syntax is working correctly. A regression will cause mypy to raise an error.
-# mypy: disallow-any-expr, disallow-any-unimported, disallow-subclassing-any
+"""Example for aiohttp.web websocket server
+"""
 
 import os
-from typing import List, Union
 
 from aiohttp import web
 
-WS_FILE = os.path.join(os.path.dirname(__file__), "websocket.html")
-sockets = web.AppKey("sockets", List[web.WebSocketResponse])
+WS_FILE = os.path.join(os.path.dirname(__file__), 'websocket.html')
 
 
-async def wshandler(request: web.Request) -> Union[web.WebSocketResponse, web.Response]:
+async def wshandler(request):
     resp = web.WebSocketResponse()
     available = resp.can_prepare(request)
     if not available:
-        with open(WS_FILE, "rb") as fp:
-            return web.Response(body=fp.read(), content_type="text/html")
+        with open(WS_FILE, 'rb') as fp:
+            return web.Response(body=fp.read(), content_type='text/html')
 
     await resp.prepare(request)
 
-    await resp.send_str("Welcome!!!")
+    await resp.send_str('Welcome!!!')
 
     try:
-        print("Someone joined.")
-        for ws in request.app[sockets]:
-            await ws.send_str("Someone joined")
-        request.app[sockets].append(resp)
+        print('Someone joined.')
+        for ws in request.app['sockets']:
+            await ws.send_str('Someone joined')
+        request.app['sockets'].append(resp)
 
-        async for msg in resp:  # type: ignore[misc]
-            if msg.type == web.WSMsgType.TEXT:  # type: ignore[misc]
-                for ws in request.app[sockets]:
+        async for msg in resp:
+            if msg.type == web.WSMsgType.TEXT:
+                for ws in request.app['sockets']:
                     if ws is not resp:
-                        await ws.send_str(msg.data)  # type: ignore[misc]
+                        await ws.send_str(msg.data)
             else:
                 return resp
         return resp
 
     finally:
-        request.app[sockets].remove(resp)
-        print("Someone disconnected.")
-        for ws in request.app[sockets]:
-            await ws.send_str("Someone disconnected.")
+        request.app['sockets'].remove(resp)
+        print('Someone disconnected.')
+        for ws in request.app['sockets']:
+            await ws.send_str('Someone disconnected.')
 
 
-async def on_shutdown(app: web.Application) -> None:
-    for ws in app[sockets]:
+async def on_shutdown(app):
+    for ws in app['sockets']:
         await ws.close()
 
 
-def init() -> web.Application:
+def init():
     app = web.Application()
-    l: List[web.WebSocketResponse] = []
-    app[sockets] = l
-    app.router.add_get("/", wshandler)
+    app['sockets'] = []
+    app.router.add_get('/', wshandler)
     app.on_shutdown.append(on_shutdown)
     return app
 

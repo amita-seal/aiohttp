@@ -1,23 +1,21 @@
 import os
 import platform
-import warnings
-from typing import Any
+import sys
 
-from aiohttp import pytest_plugin
+import pytest
 
-pytest_plugins: str = "pytester"
+pytest_plugins = 'pytester'
 
-CONFTEST: str = """
+CONFTEST = '''
 pytest_plugins = 'aiohttp.pytest_plugin'
-"""
+'''
 
 
-IS_PYPY: Any = platform.python_implementation() == "PyPy"
+IS_PYPY = platform.python_implementation() == 'PyPy'
 
 
-def test_aiohttp_plugin(testdir: Any) -> None:
-    testdir.makepyfile(
-        """\
+def test_aiohttp_plugin(testdir) -> None:
+    testdir.makepyfile("""\
 import pytest
 from unittest import mock
 
@@ -28,21 +26,21 @@ async def hello(request):
     return web.Response(body=b'Hello, world')
 
 
-async def create_app():
+def create_app(loop=None):
     app = web.Application()
     app.router.add_route('GET', '/', hello)
     return app
 
 
 async def test_hello(aiohttp_client) -> None:
-    client = await aiohttp_client(await create_app())
+    client = await aiohttp_client(create_app)
     resp = await client.get('/')
     assert resp.status == 200
     text = await resp.text()
     assert 'Hello, world' in text
 
 
-async def test_hello_from_app(aiohttp_client) -> None:
+async def test_hello_from_app(aiohttp_client, loop) -> None:
     app = web.Application()
     app.router.add_get('/', hello)
     client = await aiohttp_client(app)
@@ -52,12 +50,24 @@ async def test_hello_from_app(aiohttp_client) -> None:
     assert 'Hello, world' in text
 
 
-async def test_hello_with_loop(aiohttp_client) -> None:
-    client = await aiohttp_client(await create_app())
+async def test_hello_with_loop(aiohttp_client, loop) -> None:
+    client = await aiohttp_client(create_app)
     resp = await client.get('/')
     assert resp.status == 200
     text = await resp.text()
     assert 'Hello, world' in text
+
+
+async def test_set_args(aiohttp_client, loop) -> None:
+    with pytest.raises(AssertionError):
+        app = web.Application()
+        await aiohttp_client(app, 1, 2, 3)
+
+
+async def test_set_keyword_args(aiohttp_client, loop) -> None:
+    app = web.Application()
+    with pytest.raises(TypeError):
+        await aiohttp_client(app, param=1)
 
 
 async def test_noop() -> None:
@@ -66,7 +76,7 @@ async def test_noop() -> None:
 
 async def previous(request):
     if request.method == 'POST':
-        with pytest.deprecated_call():  # FIXME: this isn't actually called
+        with pytest.warns(DeprecationWarning):
             request.app['value'] = (await request.post())['value']
         return web.Response(body=b'thanks for the data')
     else:
@@ -74,7 +84,7 @@ async def previous(request):
         return web.Response(body='value: {}'.format(v).encode())
 
 
-def create_stateful_app():
+def create_stateful_app(loop):
     app = web.Application()
     app.router.add_route('*', '/', previous)
     return app
@@ -82,7 +92,28 @@ def create_stateful_app():
 
 @pytest.fixture
 def cli(loop, aiohttp_client):
-    return loop.run_until_complete(aiohttp_client(create_stateful_app()))
+    return loop.run_until_complete(aiohttp_client(create_stateful_app))
+
+
+async def test_set_value(cli) -> None:
+    resp = await cli.post('/', data={'value': 'foo'})
+    assert resp.status == 200
+    text = await resp.text()
+    assert text == 'thanks for the data'
+    assert cli.server.app['value'] == 'foo'
+
+
+async def test_get_value(cli) -> None:
+    resp = await cli.get('/')
+    assert resp.status == 200
+    text = await resp.text()
+    assert text == 'value: unknown'
+    with pytest.warns(DeprecationWarning):
+        cli.server.app['value'] = 'bar'
+    resp = await cli.get('/')
+    assert resp.status == 200
+    text = await resp.text()
+    assert text == 'value: bar'
 
 
 def test_noncoro() -> None:
@@ -91,17 +122,16 @@ def test_noncoro() -> None:
 
 async def test_failed_to_create_client(aiohttp_client) -> None:
 
-    def make_app():
+    def make_app(loop):
         raise RuntimeError()
 
     with pytest.raises(RuntimeError):
-        await aiohttp_client(make_app())
+        await aiohttp_client(make_app)
 
 
 async def test_custom_port_aiohttp_client(aiohttp_client, aiohttp_unused_port):
     port = aiohttp_unused_port()
-    client = await aiohttp_client(await create_app(),
-                                  server_kwargs={'port': port})
+    client = await aiohttp_client(create_app, server_kwargs={'port': port})
     assert client.port == port
     resp = await client.get('/')
     assert resp.status == 200
@@ -110,21 +140,19 @@ async def test_custom_port_aiohttp_client(aiohttp_client, aiohttp_unused_port):
 
 
 async def test_custom_port_test_server(aiohttp_server, aiohttp_unused_port):
-    app = await create_app()
+    app = create_app()
     port = aiohttp_unused_port()
     server = await aiohttp_server(app, port=port)
     assert server.port == port
 
-"""
-    )
+""")
     testdir.makeconftest(CONFTEST)
-    result = testdir.runpytest("-p", "no:sugar", "--aiohttp-loop=pyloop")
-    result.assert_outcomes(passed=8)
+    result = testdir.runpytest('-p', 'no:sugar', '--aiohttp-loop=pyloop')
+    result.assert_outcomes(passed=12)
 
 
-def test_warning_checks(testdir: Any) -> None:
-    testdir.makepyfile(
-        """\
+def test_warning_checks(testdir) -> None:
+    testdir.makepyfile("""\
 
 async def foobar():
     return 123
@@ -135,24 +163,21 @@ async def test_good() -> None:
 
 async def test_bad() -> None:
     foobar()
-"""
-    )
+""")
     testdir.makeconftest(CONFTEST)
-    result = testdir.runpytest(
-        "-p", "no:sugar", "-s", "-W", "default", "--aiohttp-loop=pyloop"
-    )
+    result = testdir.runpytest('-p', 'no:sugar', '-s', '-W',
+                               'default', '--aiohttp-loop=pyloop')
     expected_outcomes = (
-        {"failed": 0, "passed": 2}
-        if IS_PYPY and bool(os.environ.get("PYTHONASYNCIODEBUG"))
-        else {"failed": 1, "passed": 1}
+        {'failed': 0, 'passed': 2}
+        if IS_PYPY and bool(os.environ.get('PYTHONASYNCIODEBUG'))
+        else {'failed': 1, 'passed': 1}
     )
-    # Under PyPy "coroutine 'foobar' was never awaited" does not happen.
+    """Under PyPy "coroutine 'foobar' was never awaited" does not happen."""
     result.assert_outcomes(**expected_outcomes)
 
 
-def test_aiohttp_plugin_async_fixture(testdir: Any, capsys: Any) -> None:
-    testdir.makepyfile(
-        """\
+def test_aiohttp_plugin_async_fixture(testdir, capsys) -> None:
+    testdir.makepyfile("""\
 import pytest
 
 from aiohttp import web
@@ -162,15 +187,15 @@ async def hello(request):
     return web.Response(body=b'Hello, world')
 
 
-def create_app():
+def create_app(loop):
     app = web.Application()
     app.router.add_route('GET', '/', hello)
     return app
 
 
 @pytest.fixture
-async def cli(aiohttp_client, loop):
-    client = await aiohttp_client(create_app())
+async def cli(aiohttp_client):
+    client = await aiohttp_client(create_app)
     return client
 
 
@@ -185,7 +210,7 @@ async def bar(request):
     return request.function
 
 
-async def test_hello(cli, loop) -> None:
+async def test_hello(cli) -> None:
     resp = await cli.get('/')
     assert resp.status == 200
 
@@ -201,20 +226,19 @@ def test_foo_without_loop(foo) -> None:
 
 def test_bar(loop, bar) -> None:
     assert bar is test_bar
-"""
-    )
+""")
     testdir.makeconftest(CONFTEST)
-    result = testdir.runpytest("-p", "no:sugar", "--aiohttp-loop=pyloop")
-    result.assert_outcomes(passed=3, errors=1)
+    result = testdir.runpytest('-p', 'no:sugar', '--aiohttp-loop=pyloop')
+    result.assert_outcomes(passed=3, error=1)
     result.stdout.fnmatch_lines(
         "*Asynchronous fixtures must depend on the 'loop' fixture "
         "or be used in tests depending from it."
     )
 
 
-def test_aiohttp_plugin_async_gen_fixture(testdir: Any) -> None:
-    testdir.makepyfile(
-        """\
+@pytest.mark.skipif(sys.version_info < (3, 6), reason='old python')
+def test_aiohttp_plugin_async_gen_fixture(testdir) -> None:
+    testdir.makepyfile("""\
 import pytest
 from unittest import mock
 
@@ -228,15 +252,15 @@ async def hello(request):
     return web.Response(body=b'Hello, world')
 
 
-def create_app():
+def create_app(loop):
     app = web.Application()
     app.router.add_route('GET', '/', hello)
     return app
 
 
 @pytest.fixture
-async def cli(aiohttp_client, loop):
-    yield await aiohttp_client(create_app())
+async def cli(aiohttp_client):
+    yield await aiohttp_client(create_app)
     canary()
 
 
@@ -247,97 +271,7 @@ async def test_hello(cli) -> None:
 
 def test_finalized() -> None:
     assert canary.called is True
-"""
-    )
+""")
     testdir.makeconftest(CONFTEST)
-    result = testdir.runpytest("-p", "no:sugar", "--aiohttp-loop=pyloop")
-    result.assert_outcomes(passed=2)
-
-
-def test_warnings_propagated(recwarn: Any) -> None:
-    with pytest_plugin._runtime_warning_context():
-        warnings.warn("test warning is propagated")
-    assert len(recwarn) == 1
-    message = recwarn[0].message
-    assert isinstance(message, UserWarning)
-    assert message.args == ("test warning is propagated",)
-
-
-def test_aiohttp_client_cls_fixture_custom_client_used(testdir: Any) -> None:
-    testdir.makepyfile(
-        """
-import pytest
-from aiohttp.web import Application
-from aiohttp.test_utils import TestClient
-
-
-class CustomClient(TestClient):
-    pass
-
-
-@pytest.fixture
-def aiohttp_client_cls():
-    return CustomClient
-
-
-async def test_hello(aiohttp_client) -> None:
-    client = await aiohttp_client(Application())
-    assert isinstance(client, CustomClient)
-
-"""
-    )
-    testdir.makeconftest(CONFTEST)
-    result = testdir.runpytest()
-    result.assert_outcomes(passed=1)
-
-
-def test_aiohttp_client_cls_fixture_factory(testdir: Any) -> None:
-    testdir.makeconftest(
-        CONFTEST
-        + """
-
-def pytest_configure(config):
-    config.addinivalue_line("markers", "rest: RESTful API tests")
-    config.addinivalue_line("markers", "graphql: GraphQL API tests")
-
-"""
-    )
-    testdir.makepyfile(
-        """
-import pytest
-from aiohttp.web import Application
-from aiohttp.test_utils import TestClient
-
-
-class RESTfulClient(TestClient):
-    pass
-
-
-class GraphQLClient(TestClient):
-    pass
-
-
-@pytest.fixture
-def aiohttp_client_cls(request):
-    if request.node.get_closest_marker('rest') is not None:
-        return RESTfulClient
-    elif request.node.get_closest_marker('graphql') is not None:
-        return GraphQLClient
-    return TestClient
-
-
-@pytest.mark.rest
-async def test_rest(aiohttp_client) -> None:
-    client = await aiohttp_client(Application())
-    assert isinstance(client, RESTfulClient)
-
-
-@pytest.mark.graphql
-async def test_graphql(aiohttp_client) -> None:
-    client = await aiohttp_client(Application())
-    assert isinstance(client, GraphQLClient)
-
-"""
-    )
-    result = testdir.runpytest()
+    result = testdir.runpytest('-p', 'no:sugar', '--aiohttp-loop=pyloop')
     result.assert_outcomes(passed=2)

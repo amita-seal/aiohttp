@@ -1,9 +1,10 @@
-.. currentmodule:: aiohttp.web
-
 .. _aiohttp-web-quickstart:
 
 Web Server Quickstart
 =====================
+
+.. currentmodule:: aiohttp.web
+
 
 Run a Simple Web Server
 -----------------------
@@ -52,12 +53,6 @@ with shiny route decorators.
 *aiohttp* server documentation uses both ways in code snippets to
 emphasize their equality, switching from one style to another is very
 trivial.
-
-.. note::
-   You can get a powerful aiohttp template by running one command.
-   To do this, simply use our `boilerplate for quick start with aiohttp
-   <https://create-aio-app.readthedocs.io/pages/aiohttp_quick_start.html>`_.
-
 
 .. seealso::
 
@@ -137,7 +132,7 @@ requests on a *path* having **any** *HTTP method*::
   app.add_routes([web.route('*', '/path', all_handler)])
 
 The *HTTP method* can be queried later in the request handler using the
-:attr:`aiohttp.web.BaseRequest.method` property.
+:attr:`Request.method` property.
 
 By default endpoints added with ``GET`` method will accept
 ``HEAD`` requests and return the same response headers as they would
@@ -147,12 +142,6 @@ for a ``GET`` request. You can also deny ``HEAD`` requests on a route::
 
 Here ``handler`` won't be called on ``HEAD`` request and the server
 will respond with ``405: Method Not Allowed``.
-
-.. seealso::
-
-   :ref:`aiohttp-web-peer-disconnection` section explains how handlers
-   behave when a client connection drops and ways to optimize handling
-   of this.
 
 .. _aiohttp-web-resource-and-route:
 
@@ -170,7 +159,7 @@ Resource in turn has at least one *route*.
 
 Route corresponds to handling *HTTP method* by calling *web handler*.
 
-Thus when you add a *route* the *resource* object is created under the hood.
+Thus when you add a *route* the *resouce* object is created under the hood.
 
 The library implementation **merges** all subsequent route additions
 for the same path adding the only resource for all HTTP methods.
@@ -232,7 +221,7 @@ Routes can also be given a *name*::
 Which can then be used to access and build a *URL* for that resource later (e.g.
 in a :ref:`request handler <aiohttp-web-handler>`)::
 
-   url = request.app.router['root'].url_for().with_query({"a": "b", "c": "d"})
+   url == request.app.router['root'].url_for().with_query({"a": "b", "c": "d"})
    assert url == URL('/root?a=b&c=d')
 
 A more interesting example is building *URLs* for :ref:`variable
@@ -280,7 +269,7 @@ application developers can organize handlers in classes if they so wish::
 
    handler = Handler()
    app.add_routes([web.get('/intro', handler.handle_intro),
-                   web.get('/greet/{name}', handler.handle_greeting)])
+                   web.get('/greet/{name}', handler.handle_greeting)]
 
 
 .. _aiohttp-web-class-based-views:
@@ -307,17 +296,13 @@ retrieved by :attr:`View.request` property.
 After implementing the view (``MyView`` from example above) should be
 registered in application's router::
 
-   app.add_routes([web.view('/path/to', MyView)])
+   web.view('/path/to', MyView)
 
 or::
 
    @routes.view('/path/to')
    class MyView(web.View):
        ...
-
-or::
-
-   app.router.add_route('*', '/path/to', MyView)
 
 Example will process GET and POST requests for */path/to* but raise
 *405 Method not allowed* exception for unimplemented HTTP methods.
@@ -361,7 +346,7 @@ Route tables look like Django way::
                           web.post('/post', handle_post),
 
 
-The snippet calls :meth:`~aiohttp.web.UrlDispatcher.add_routes` to
+The snippet calls :meth:`~aiohttp.web.UrlDispather.add_routes` to
 register a list of *route definitions* (:class:`aiohttp.web.RouteDef`
 instances) created by :func:`aiohttp.web.get` or
 :func:`aiohttp.web.post` functions.
@@ -405,7 +390,7 @@ The container is a list-like object with additional decorators
 routes.
 
 After filling the container
-:meth:`~aiohttp.web.UrlDispatcher.add_routes` is used for adding
+:meth:`~aiohttp.web.UrlDispather.add_routes` is used for adding
 registered *route definitions* into application's router.
 
 .. seealso:: :ref:`aiohttp-web-route-table-def` reference.
@@ -474,17 +459,17 @@ HTTP Forms
 HTTP Forms are supported out of the box.
 
 If form's method is ``"GET"`` (``<form method="get">``) use
-:attr:`aiohttp.web.BaseRequest.query` for getting form data.
+:attr:`Request.query` for getting form data.
 
 To access form data with ``"POST"`` method use
-:meth:`aiohttp.web.BaseRequest.post` or :meth:`aiohttp.web.BaseRequest.multipart`.
+:meth:`Request.post` or :meth:`Request.multipart`.
 
-:meth:`aiohttp.web.BaseRequest.post` accepts both
+:meth:`Request.post` accepts both
 ``'application/x-www-form-urlencoded'`` and ``'multipart/form-data'``
 form's data encoding (e.g. ``<form enctype="multipart/form-data">``).
 It stores files data in temporary directory. If `client_max_size` is
 specified `post` raises `ValueError` exception.
-For efficiency use :meth:`aiohttp.web.BaseRequest.multipart`, It is especially effective
+For efficiency use :meth:`Request.multipart`, It is especially effective
 for uploading large files (:ref:`aiohttp-web-file-upload`).
 
 Values submitted by the following form:
@@ -558,10 +543,10 @@ a container for the file as well as some of its metadata::
 
 
 You might have noticed a big warning in the example above. The general issue is
-that :meth:`aiohttp.web.BaseRequest.post` reads the whole payload in memory,
+that :meth:`Request.post` reads the whole payload in memory,
 resulting in possible
 :abbr:`OOM (Out Of Memory)` errors. To avoid this, for multipart uploads, you
-should use :meth:`aiohttp.web.BaseRequest.multipart` which returns a :ref:`multipart reader
+should use :meth:`Request.multipart` which returns a :ref:`multipart reader
 <aiohttp-multipart>`::
 
     async def store_mp3_handler(request):
@@ -609,8 +594,6 @@ with the peer::
         await ws.prepare(request)
 
         async for msg in ws:
-            # ws.__next__() automatically terminates the loop
-            # after ws.close() or ws.exception() is called
             if msg.type == aiohttp.WSMsgType.TEXT:
                 if msg.data == 'close':
                     await ws.close()
@@ -667,3 +650,110 @@ Example with login validation::
     app.router.add_get('/', index, name='index')
     app.router.add_get('/login', login, name='login')
     app.router.add_post('/login', login, name='login')
+
+.. _aiohttp-web-exceptions:
+
+Exceptions
+----------
+
+:mod:`aiohttp.web` defines a set of exceptions for every *HTTP status code*.
+
+Each exception is a subclass of :class:`~HTTPException` and relates to a single
+HTTP status code::
+
+    async def handler(request):
+        raise aiohttp.web.HTTPFound('/redirect')
+
+.. warning::
+
+   Returning :class:`~HTTPException` or its subclasses is deprecated and will
+   be removed in subsequent aiohttp versions.
+
+Each exception class has a status code according to :rfc:`2068`:
+codes with 100-300 are not really errors; 400s are client errors,
+and 500s are server errors.
+
+HTTP Exception hierarchy chart::
+
+   Exception
+     HTTPException
+       HTTPSuccessful
+         * 200 - HTTPOk
+         * 201 - HTTPCreated
+         * 202 - HTTPAccepted
+         * 203 - HTTPNonAuthoritativeInformation
+         * 204 - HTTPNoContent
+         * 205 - HTTPResetContent
+         * 206 - HTTPPartialContent
+       HTTPRedirection
+         * 300 - HTTPMultipleChoices
+         * 301 - HTTPMovedPermanently
+         * 302 - HTTPFound
+         * 303 - HTTPSeeOther
+         * 304 - HTTPNotModified
+         * 305 - HTTPUseProxy
+         * 307 - HTTPTemporaryRedirect
+         * 308 - HTTPPermanentRedirect
+       HTTPError
+         HTTPClientError
+           * 400 - HTTPBadRequest
+           * 401 - HTTPUnauthorized
+           * 402 - HTTPPaymentRequired
+           * 403 - HTTPForbidden
+           * 404 - HTTPNotFound
+           * 405 - HTTPMethodNotAllowed
+           * 406 - HTTPNotAcceptable
+           * 407 - HTTPProxyAuthenticationRequired
+           * 408 - HTTPRequestTimeout
+           * 409 - HTTPConflict
+           * 410 - HTTPGone
+           * 411 - HTTPLengthRequired
+           * 412 - HTTPPreconditionFailed
+           * 413 - HTTPRequestEntityTooLarge
+           * 414 - HTTPRequestURITooLong
+           * 415 - HTTPUnsupportedMediaType
+           * 416 - HTTPRequestRangeNotSatisfiable
+           * 417 - HTTPExpectationFailed
+           * 421 - HTTPMisdirectedRequest
+           * 422 - HTTPUnprocessableEntity
+           * 424 - HTTPFailedDependency
+           * 426 - HTTPUpgradeRequired
+           * 428 - HTTPPreconditionRequired
+           * 429 - HTTPTooManyRequests
+           * 431 - HTTPRequestHeaderFieldsTooLarge
+           * 451 - HTTPUnavailableForLegalReasons
+         HTTPServerError
+           * 500 - HTTPInternalServerError
+           * 501 - HTTPNotImplemented
+           * 502 - HTTPBadGateway
+           * 503 - HTTPServiceUnavailable
+           * 504 - HTTPGatewayTimeout
+           * 505 - HTTPVersionNotSupported
+           * 506 - HTTPVariantAlsoNegotiates
+           * 507 - HTTPInsufficientStorage
+           * 510 - HTTPNotExtended
+           * 511 - HTTPNetworkAuthenticationRequired
+
+All HTTP exceptions have the same constructor signature::
+
+    HTTPNotFound(*, headers=None, reason=None,
+                 body=None, text=None, content_type=None)
+
+If not directly specified, *headers* will be added to the *default
+response headers*.
+
+Classes :class:`HTTPMultipleChoices`, :class:`HTTPMovedPermanently`,
+:class:`HTTPFound`, :class:`HTTPSeeOther`, :class:`HTTPUseProxy`,
+:class:`HTTPTemporaryRedirect` have the following constructor signature::
+
+    HTTPFound(location, *, headers=None, reason=None,
+              body=None, text=None, content_type=None)
+
+where *location* is value for *Location HTTP header*.
+
+:class:`HTTPMethodNotAllowed` is constructed by providing the incoming
+unsupported method and list of allowed methods::
+
+    HTTPMethodNotAllowed(method, allowed_methods, *,
+                         headers=None, reason=None,
+                         body=None, text=None, content_type=None)

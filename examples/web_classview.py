@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Example for aiohttp.web class based views."""
+"""Example for aiohttp.web class based views
+"""
+
 
 import functools
 import json
@@ -8,29 +10,25 @@ from aiohttp import web
 
 
 class MyView(web.View):
-    async def get(self) -> web.StreamResponse:
-        return web.json_response(
-            {
-                "method": self.request.method,
-                "args": dict(self.request.rel_url.query),
-                "headers": dict(self.request.headers),
-            },
-            dumps=functools.partial(json.dumps, indent=4),
-        )
 
-    async def post(self) -> web.StreamResponse:
+    async def get(self):
+        return web.json_response({
+            'method': 'get',
+            'args': dict(self.request.GET),
+            'headers': dict(self.request.headers),
+        }, dumps=functools.partial(json.dumps, indent=4))
+
+    async def post(self):
         data = await self.request.post()
-        return web.json_response(
-            {
-                "method": self.request.method,
-                "data": dict(data),
-                "headers": dict(self.request.headers),
-            },
-            dumps=functools.partial(json.dumps, indent=4),
-        )
+        return web.json_response({
+            'method': 'post',
+            'args': dict(self.request.GET),
+            'data': dict(data),
+            'headers': dict(self.request.headers),
+        }, dumps=functools.partial(json.dumps, indent=4))
 
 
-async def index(request: web.Request) -> web.StreamResponse:
+async def index(request):
     txt = """
       <html>
         <head>
@@ -46,14 +44,14 @@ async def index(request: web.Request) -> web.StreamResponse:
         </body>
       </html>
     """
-    return web.Response(text=txt, content_type="text/html")
+    return web.Response(text=txt, content_type='text/html')
 
 
-def init() -> web.Application:
+def init():
     app = web.Application()
-    app.router.add_get("/", index)
-    app.router.add_get("/get", MyView)
-    app.router.add_post("/post", MyView)
+    app.router.add_get('/', index)
+    app.router.add_get('/get', MyView)
+    app.router.add_post('/post', MyView)
     return app
 
 

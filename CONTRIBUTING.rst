@@ -12,25 +12,22 @@ I hope everybody knows how to work with git and github nowadays :)
 
 Workflow is pretty straightforward:
 
-  1. Clone the GitHub_ repo using the ``--recurse-submodules`` argument
+  1. Clone the GitHub_ repo using ``--recurse-submodules`` argument
 
-  2. Setup your machine with the required development environment
+  2. Make a change
 
-  3. Make a change
+  3. Make sure all tests passed
 
-  4. Make sure all tests passed
+  4. Add a file into ``CHANGES`` folder.
 
-  5. Add a file into the ``CHANGES`` folder, named after the ticket or PR number
+  5. Commit changes to own aiohttp clone
 
-  6. Commit changes to your own aiohttp clone
+  6. Make pull request from github page for your clone against master branch
 
-  7. Make a pull request from the github page of your clone against the master branch
+  7. Optionally make backport Pull Request(s) for landing a bug fix
+     into released aiohttp versions.
 
-  8. Optionally make backport Pull Request(s) for landing a bug fix into released aiohttp versions.
-
-.. important::
-
-    Please open the "`contributing <https://docs.aiohttp.org/en/stable/contributing.html>`_"
-    documentation page to get detailed information about all steps.
+Please open https://docs.aiohttp.org/en/stable/contributing.html
+documentation page for getting detailed information about all steps.
 
 .. _GitHub: https://github.com/aio-libs/aiohttp

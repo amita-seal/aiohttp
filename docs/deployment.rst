@@ -37,7 +37,7 @@ Nginx+supervisord
 
 Running aiohttp servers behind :term:`nginx` makes several advantages.
 
-First, nginx is the perfect frontend server. It may prevent many
+At first, nginx is the perfect frontend server. It may prevent many
 attacks based on malformed http protocol etc.
 
 Second, running several aiohttp instances behind nginx allows to
@@ -51,10 +51,10 @@ But this way requires more complex configuration.
 Nginx configuration
 --------------------
 
-Here is short example of an Nginx configuration file.
+Here is short extraction about writing Nginx configuration file.
 It does not cover all available Nginx options.
 
-For full details, read `Nginx tutorial
+For full reference read `Nginx tutorial
 <https://www.nginx.com/resources/admin-guide/>`_ and `official Nginx
 documentation
 <http://nginx.org/en/docs/http/ngx_http_proxy_module.html>`_.
@@ -86,8 +86,8 @@ First configure HTTP server itself:
      }
    }
 
-This config listens on port ``80`` for a server named ``example.com``
-and redirects everything to the ``aiohttp`` backend group.
+This config listens on port ``80`` for server named ``example.com``
+and redirects everything to ``aiohttp`` backend group.
 
 Also it serves static files from ``/path/to/app/static`` path as
 ``example.com/static``.
@@ -124,20 +124,20 @@ selection.
 
 .. note::
 
-   Nginx is not the only existing *reverse proxy server*, but it's the most
+   Nginx is not the only existing *reverse proxy server* but the most
    popular one.  Alternatives like HAProxy may be used as well.
 
 Supervisord
 -----------
 
-After configuring Nginx we need to start our aiohttp backends. It's best
-to use some tool for starting them automatically after a system reboot
+After configuring Nginx we need to start our aiohttp backends. Better
+to use some tool for starting them automatically after system reboot
 or backend crash.
 
-There are many ways to do it: Supervisord, Upstart, Systemd,
+There are very many ways to do it: Supervisord, Upstart, Systemd,
 Gaffer, Circus, Runit etc.
 
-Here we'll use `Supervisord <http://supervisord.org/>`_ as an example:
+Here we'll use `Supervisord <http://supervisord.org/>`_ for example:
 
 .. code-block:: cfg
 
@@ -159,7 +159,7 @@ Here we'll use `Supervisord <http://supervisord.org/>`_ as an example:
 aiohttp server
 --------------
 
-The last step is preparing the aiohttp server to work with supervisord.
+The last step is preparing aiohttp server for working with supervisord.
 
 Assuming we have properly configured :class:`aiohttp.web.Application`
 and port is specified by command line, the task is trivial:
@@ -196,17 +196,17 @@ aiohttp can be deployed using `Gunicorn
 pre-fork worker model.  Gunicorn launches your app as worker processes
 for handling incoming requests.
 
-As opposed to deployment with :ref:`bare Nginx
-<aiohttp-deployment-nginx-supervisord>`, this solution does not need to
-manually run several aiohttp processes and use a tool like supervisord
-to monitor them. But nothing is free: running aiohttp
+In opposite to deployment with :ref:`bare Nginx
+<aiohttp-deployment-nginx-supervisord>` the solution does not need to
+manually run several aiohttp processes and use tool like supervisord
+for monitoring it. But nothing is for free: running aiohttp
 application under gunicorn is slightly slower.
 
 
 Prepare environment
 -------------------
 
-You first need to setup your deployment environment. This example is
+You firstly need to setup your deployment environment. This example is
 based on `Ubuntu <https://www.ubuntu.com/>`_ 16.04.
 
 Create a directory for your application::
@@ -214,7 +214,7 @@ Create a directory for your application::
   >> mkdir myapp
   >> cd myapp
 
-Create a Python virtual environment::
+Create Python virtual environment::
 
   >> python3 -m venv venv
   >> source venv/bin/activate
@@ -300,99 +300,15 @@ worker processes.
    `uvloop <https://github.com/MagicStack/uvloop>`_, you can use the
    ``aiohttp.GunicornUVLoopWebWorker`` worker class.
 
-Proxy through NGINX
-----------------------
-
-We can proxy our gunicorn workers through NGINX with a configuration like this:
-
-.. code-block:: nginx
-
-    worker_processes 1;
-    user nobody nogroup;
-    events {
-        worker_connections 1024;
-    }
-    http {
-        ## Main Server Block
-        server {
-            ## Open by default.
-            listen                80 default_server;
-            server_name           main;
-            client_max_body_size  200M;
-
-            ## Main site location.
-            location / {
-                proxy_pass                          http://127.0.0.1:8080;
-                proxy_set_header                    Host $host;
-                proxy_set_header X-Forwarded-Host   $server_name;
-                proxy_set_header X-Real-IP          $remote_addr;
-            }
-        }
-    }
-
-Since gunicorn listens for requests at our localhost address on port 8080, we can
-use the `proxy_pass <https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_pass>`_
-directive to send web traffic to our workers. If everything is configured correctly,
-we should reach our application at the ip address of our web server.
-
-Proxy through NGINX + SSL
-----------------------------
-
-Here is an example NGINX configuration setup to accept SSL connections:
-
-.. code-block:: nginx
-
-    worker_processes 1;
-    user nobody nogroup;
-    events {
-        worker_connections 1024;
-    }
-    http {
-        ## SSL Redirect
-        server {
-            listen 80       default;
-            return 301      https://$host$request_uri;
-        }
-
-        ## Main Server Block
-        server {
-            # Open by default.
-            listen                443 ssl default_server;
-            listen                [::]:443 ssl default_server;
-            server_name           main;
-            client_max_body_size  200M;
-
-            ssl_certificate       /etc/secrets/cert.pem;
-            ssl_certificate_key   /etc/secrets/key.pem;
-
-            ## Main site location.
-            location / {
-                proxy_pass                          http://127.0.0.1:8080;
-                proxy_set_header                    Host $host;
-                proxy_set_header X-Forwarded-Host   $server_name;
-                proxy_set_header X-Real-IP          $remote_addr;
-            }
-        }
-    }
-
-
-The first server block accepts regular http connections on port 80 and redirects
-them to our secure SSL connection. The second block matches our previous example
-except we need to change our open port to https and specify where our SSL
-certificates are being stored with the ``ssl_certificate`` and ``ssl_certificate_key``
-directives.
-
-During development, you may want to `create your own self-signed certificates for testing purposes <https://www.digitalocean.com/community/tutorials/how-to-create-a-self-signed-ssl-certificate-for-nginx-in-ubuntu-18-04>`_
-and use another service like `Let's Encrypt <https://letsencrypt.org/>`_ when you
-are ready to move to production.
 
 More information
 ----------------
 
-See the `official documentation
+The Gunicorn documentation recommends deploying Gunicorn behind an
+Nginx proxy server. See the `official documentation
 <http://docs.gunicorn.org/en/latest/deploy.html>`_ for more
-information about suggested nginx configuration. You can also find out more about
-`configuring for secure https connections as well. <https://nginx.org/en/docs/http/configuring_https_servers.html>`_
+information about suggested nginx configuration.
+
 
 Logging configuration
 ---------------------
@@ -405,9 +321,3 @@ By default aiohttp uses own defaults::
 
 For more information please read :ref:`Format Specification for Access
 Log <aiohttp-logging-access-log-format-spec>`.
-
-
-Proxy through Apache at your own risk
--------------------------------------
-Issues have been reported using Apache2 in front of aiohttp server:
-`#2687 Intermittent 502 proxy errors when running behind Apache <https://github.com/aio-libs/aiohttp/issues/2687>`.

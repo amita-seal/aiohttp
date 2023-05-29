@@ -2,16 +2,22 @@
 Async http client/server framework
 ==================================
 
-.. image:: https://raw.githubusercontent.com/aio-libs/aiohttp/master/docs/aiohttp-plain.svg
+.. image:: https://raw.githubusercontent.com/aio-libs/aiohttp/master/docs/_static/aiohttp-icon-128x128.png
    :height: 64px
    :width: 64px
    :alt: aiohttp logo
 
 |
 
-.. image:: https://github.com/aio-libs/aiohttp/workflows/CI/badge.svg
-   :target: https://github.com/aio-libs/aiohttp/actions?query=workflow%3ACI
-   :alt: GitHub Actions status for master branch
+.. image:: https://travis-ci.com/aio-libs/aiohttp.svg?branch=master
+   :target: https://travis-ci.com/aio-libs/aiohttp
+   :align: right
+   :alt: Travis status for master branch
+
+.. image:: https://ci.appveyor.com/api/projects/status/tnddy9k6pphl8w7k/branch/master?svg=true
+   :target: https://ci.appveyor.com/project/aio-libs/aiohttp
+   :align: right
+   :alt: AppVeyor status for master branch
 
 .. image:: https://codecov.io/gh/aio-libs/aiohttp/branch/master/graph/badge.svg
    :target: https://codecov.io/gh/aio-libs/aiohttp
@@ -21,18 +27,13 @@ Async http client/server framework
    :target: https://pypi.org/project/aiohttp
    :alt: Latest PyPI package version
 
-.. image:: https://img.shields.io/pypi/dm/aiohttp
-   :target: https://pypistats.org/packages/aiohttp
-   :alt: Downloads count
-
 .. image:: https://readthedocs.org/projects/aiohttp/badge/?version=latest
    :target: https://docs.aiohttp.org/
    :alt: Latest Read The Docs
 
 .. image:: https://badges.gitter.im/Join%20Chat.svg
-   :target: https://gitter.im/aio-libs/Lobby
-   :alt: Chat on Gitter
-
+    :target: https://gitter.im/aio-libs/Lobby
+    :alt: Chat on Gitter
 
 Key Features
 ============
@@ -40,7 +41,7 @@ Key Features
 - Supports both client and server side of HTTP protocol.
 - Supports both client and server Web-Sockets out-of-the-box and avoids
   Callback Hell.
-- Provides Web-server with middlewares and plugable routing.
+- Provides Web-server with middlewares and pluggable routing.
 
 
 Getting started
@@ -56,28 +57,19 @@ To get something from the web:
   import aiohttp
   import asyncio
 
+  async def fetch(session, url):
+      async with session.get(url) as response:
+          return await response.text()
+
   async def main():
-
       async with aiohttp.ClientSession() as session:
-          async with session.get('http://python.org') as response:
+          html = await fetch(session, 'http://python.org')
+          print(html)
 
-              print("Status:", response.status)
-              print("Content-type:", response.headers['content-type'])
+  if __name__ == '__main__':
+      loop = asyncio.get_event_loop()
+      loop.run_until_complete(main())
 
-              html = await response.text()
-              print("Body:", html[:15], "...")
-
-  asyncio.run(main())
-
-This prints:
-
-.. code-block::
-
-    Status: 200
-    Content-type: text/html; charset=utf-8
-    Body: <!doctype html> ...
-
-Coming from `requests <https://requests.readthedocs.io/>`_ ? Read `why we need so many lines <https://aiohttp.readthedocs.io/en/latest/http_request_lifecycle.html>`_.
 
 Server
 ------
@@ -146,7 +138,9 @@ Feel free to make a Pull Request for adding your link to these pages!
 Communication channels
 ======================
 
-*aio-libs Discussions*: https://github.com/aio-libs/aiohttp/discussions
+*aio-libs* google group: https://groups.google.com/forum/#!forum/aio-libs
+
+Feel free to post your questions and ideas here.
 
 *gitter chat* https://gitter.im/aio-libs/Lobby
 
@@ -157,19 +151,20 @@ Please add *aiohttp* tag to your question there.
 Requirements
 ============
 
+- Python >= 3.5.3
 - async-timeout_
-- charset-normalizer_
+- attrs_
+- chardet_
 - multidict_
 - yarl_
-- frozenlist_
 
 Optionally you may install the cChardet_ and aiodns_ libraries (highly
 recommended for sake of speed).
 
-.. _charset-normalizer: https://pypi.org/project/charset-normalizer
+.. _chardet: https://pypi.python.org/pypi/chardet
 .. _aiodns: https://pypi.python.org/pypi/aiodns
+.. _attrs: https://github.com/python-attrs/attrs
 .. _multidict: https://pypi.python.org/pypi/multidict
-.. _frozenlist: https://pypi.org/project/frozenlist/
 .. _yarl: https://pypi.python.org/pypi/yarl
 .. _async-timeout: https://pypi.python.org/pypi/async_timeout
 .. _cChardet: https://pypi.python.org/pypi/cchardet

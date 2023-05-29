@@ -1,9 +1,9 @@
-.. currentmodule:: aiohttp
-
 .. _aiohttp-client-advanced:
 
 Advanced Client Usage
 =====================
+
+.. currentmodule:: aiohttp
 
 .. _aiohttp-client-session:
 
@@ -52,51 +52,9 @@ directly as shown above, but it is more convenient to use special keyword
 
     await session.post(url, json={'example': 'text'})
 
-For ``text/plain``::
+For *text/plain* ::
 
     await session.post(url, data='Привет, Мир!')
-
-Authentication
---------------
-
-Instead of setting the ``Authorization`` header directly,
-:class:`ClientSession` and individual request methods provide an ``auth``
-argument. An instance of :class:`BasicAuth` can be passed in like this::
-
-    auth = BasicAuth(login="...", password="...")
-    async with ClientSession(auth=auth) as session:
-        ...
-
-For other authentication flows, the ``Authorization`` header can be set
-directly::
-
-    headers = {"Authorization": "Bearer eyJh...0M30"}
-    async with ClientSession(headers=headers) as session:
-        ...
-
-The authentication header for a session may be updated as and when required.
-For example::
-
-    session.headers["Authorization"] = "Bearer eyJh...1OH0"
-
-Note that a *copy* of the headers dictionary is set as an attribute when
-creating a :class:`ClientSession` instance (as a :class:`multidict.CIMultiDict`
-object). Updating the original dictionary does not have any effect.
-
-In cases where the authentication header value expires periodically, an
-:mod:`asyncio` task may be used to update the session's default headers in the
-background.
-
-.. note::
-
-   The ``Authorization`` header will be removed if you get redirected
-   to a different host or protocol, except the case when  HTTP → HTTPS
-   redirect is performed on the same host.
-
-.. versionchanged:: 4.0
-
-   Started keeping the ``Authorization`` header during HTTP → HTTPS
-   redirects when the host remains the same.
 
 Custom Cookies
 --------------
@@ -123,7 +81,7 @@ between multiple requests::
         await session.get(
             'http://httpbin.org/cookies/set?my_cookie=my_value')
         filtered = session.cookie_jar.filter_cookies(
-            URL('http://httpbin.org'))
+            'http://httpbin.org')
         assert filtered['my_cookie'].value == 'my_value'
         async with session.get('http://httpbin.org/cookies') as r:
             json_body = await r.json()
@@ -192,10 +150,10 @@ the :attr:`~ClientResponse.history` attribute::
 
     resp = await session.get('http://example.com/some/redirect/')
     assert resp.status == 200
-    assert resp.url == URL('http://example.com/some/other/url/')
+    assert resp.url = URL('http://example.com/some/other/url/')
     assert len(resp.history) == 1
     assert resp.history[0].status == 301
-    assert resp.history[0].url == URL(
+    assert resp.history[0].url = URL(
         'http://example.com/some/redirect/')
 
 If no redirects occurred or ``allow_redirects`` is set to ``False``,
@@ -213,36 +171,14 @@ Cookie Safety
 By default :class:`~aiohttp.ClientSession` uses strict version of
 :class:`aiohttp.CookieJar`. :rfc:`2109` explicitly forbids cookie
 accepting from URLs with IP address instead of DNS name
-(e.g. ``http://127.0.0.1:80/cookie``).
+(e.g. `http://127.0.0.1:80/cookie`).
 
 It's good but sometimes for testing we need to enable support for such
-cookies. It should be done by passing ``unsafe=True`` to
+cookies. It should be done by passing `unsafe=True` to
 :class:`aiohttp.CookieJar` constructor::
 
 
    jar = aiohttp.CookieJar(unsafe=True)
-   session = aiohttp.ClientSession(cookie_jar=jar)
-
-
-.. _aiohttp-client-cookie-quoting-routine:
-
-Cookie Quoting Routine
-^^^^^^^^^^^^^^^^^^^^^^
-
-The client uses the :class:`~aiohttp.SimpleCookie` quoting routines
-conform to the :rfc:`2109`, which in turn references the character definitions
-from :rfc:`2068`. They provide a two-way quoting algorithm where any non-text
-character is translated into a 4 character sequence: a forward-slash
-followed by the three-digit octal equivalent of the character.
-Any ``\`` or ``"`` is quoted with a preceding ``\`` slash.
-Because of the way browsers really handle cookies (as opposed to what the RFC
-says) we also encode ``,`` and ``;``.
-
-Some backend systems does not support quoted cookies. You can skip this
-quotation routine by passing ``quote_cookie=False`` to the
-:class:`~aiohttp.CookieJar` constructor::
-
-   jar = aiohttp.CookieJar(quote_cookie=False)
    session = aiohttp.ClientSession(cookie_jar=jar)
 
 
@@ -337,7 +273,7 @@ nature are installed to perform their job in each signal handle::
 
 All signals take as a parameters first, the :class:`ClientSession`
 instance used by the specific request related to that signals and
-second, a :class:`~types.SimpleNamespace` instance called
+second, a :class:`SimpleNamespace` instance called
 ``trace_config_ctx``. The ``trace_config_ctx`` object can be used to
 share the state through to the different signals that belong to the
 same request and to the same :class:`TraceConfig` class, perhaps::
@@ -352,7 +288,7 @@ same request and to the same :class:`TraceConfig` class, perhaps::
 
 
 The ``trace_config_ctx`` param is by default a
-:class:`~types.SimpleNamespace` that is initialized at the beginning of the
+:class:`SimpleNampespace` that is initialized at the beginning of the
 request flow. However, the factory used to create this object can be
 overwritten using the ``trace_config_ctx_factory`` constructor param of
 the :class:`TraceConfig` class.
@@ -561,16 +497,12 @@ DER with e.g::
    to :class:`TCPConnector` as default, the value from
    :meth:`ClientSession.get` and others override default.
 
-.. _aiohttp-client-proxy-support:
-
 Proxy support
 -------------
 
-aiohttp supports plain HTTP proxies and HTTP proxies that can be
-upgraded to HTTPS via the HTTP CONNECT method. aiohttp has a limited
-support for proxies that must be connected to via ``https://`` — see
-the info box below for more details.
-To connect, use the *proxy* parameter::
+aiohttp supports plain HTTP proxies and HTTP proxies that can be upgraded to HTTPS
+via the HTTP CONNECT method. aiohttp does not support proxies that must be
+connected to via ``https://``. To connect, use the *proxy* parameter::
 
    async with aiohttp.ClientSession() as session:
        async with session.get("http://python.org",
@@ -594,94 +526,16 @@ Authentication credentials can be passed in proxy URL::
 Contrary to the ``requests`` library, it won't read environment
 variables by default. But you can do so by passing
 ``trust_env=True`` into :class:`aiohttp.ClientSession`
-constructor.::
+constructor for extracting proxy configuration from
+*HTTP_PROXY* or *HTTPS_PROXY* *environment variables* (both are case
+insensitive)::
 
    async with aiohttp.ClientSession(trust_env=True) as session:
        async with session.get("http://python.org") as resp:
            print(resp.status)
 
-.. note::
-    aiohttp uses :func:`urllib.request.getproxies`
-    for reading the proxy configuration (e.g. from the *HTTP_PROXY* etc. environment variables) and applies them for the *HTTP*, *HTTPS*, *WS* and *WSS* schemes.
-
-    Hosts defined in ``no_proxy`` will bypass the proxy.
-
 Proxy credentials are given from ``~/.netrc`` file if present (see
 :class:`aiohttp.ClientSession` for more details).
-
-.. attention::
-
-   CPython has introduced the support for TLS in TLS around Python 3.7.
-   But, as of now (Python 3.10), it's disabled for the transports that
-   :py:mod:`asyncio` uses. If the further release of Python (say v3.11)
-   toggles one attribute, it'll *just work™*.
-
-   aiohttp v3.8 and higher is ready for this to happen and has code in
-   place supports TLS-in-TLS, hence sending HTTPS requests over HTTPS
-   proxy tunnels.
-
-   ⚠️ For as long as your Python runtime doesn't declare the support for
-   TLS-in-TLS, please don't file bugs with aiohttp but rather try to
-   help the CPython upstream enable this feature. Meanwhile, if you
-   *really* need this to work, there's a patch that may help you make
-   it happen, include it into your app's code base:
-   https://github.com/aio-libs/aiohttp/discussions/6044#discussioncomment-1432443.
-
-.. important::
-
-   When supplying a custom :py:class:`ssl.SSLContext` instance, bear in
-   mind that it will be used not only to establish a TLS session with
-   the HTTPS endpoint you're hitting but also to establish a TLS tunnel
-   to the HTTPS proxy. To avoid surprises, make sure to set up the trust
-   chain that would recognize TLS certificates used by both the endpoint
-   and the proxy.
-
-.. _aiohttp-persistent-session:
-
-Persistent session
-------------------
-
-Even though creating a session on demand seems like a tempting idea, we
-advise against it. :class:`aiohttp.ClientSession` maintains a
-connection pool. Contained connections can be reused if necessary to gain some
-performance improvements. If you plan on reusing the session, a.k.a. creating
-**persistent session**, you can use either :ref:`aiohttp-web-signals` or
-:ref:`aiohttp-web-cleanup-ctx`. If possible we advise using :ref:`aiohttp-web-cleanup-ctx`,
-as it results in more compact code::
-
-    app.cleanup_ctx.append(persistent_session)
-    persistent_session = aiohttp.web.AppKey("persistent_session", aiohttp.ClientSession)
-
-    async def persistent_session(app):
-       app[persistent_session] = session = aiohttp.ClientSession()
-       yield
-       await session.close()
-
-    async def my_request_handler(request):
-       session = request.app[persistent_session]
-       async with session.get("http://python.org") as resp:
-           print(resp.status)
-
-
-This approach can be successfully used to define numerous sessions given certain
-requirements. It benefits from having a single location where :class:`aiohttp.ClientSession`
-instances are created and where artifacts such as :class:`aiohttp.BaseConnector`
-can be safely shared between sessions if needed.
-
-In the end all you have to do is to close all sessions after the `yield` statement::
-
-    async def multiple_sessions(app):
-       app[persistent_session_1] = session_1 = aiohttp.ClientSession()
-       app[persistent_session_2] = session_2 = aiohttp.ClientSession()
-       app[persistent_session_3] = session_3 = aiohttp.ClientSession()
-
-       yield
-
-       await asyncio.gather(
-           session_1.close(),
-           session_2.close(),
-           session_3.close(),
-       )
 
 Graceful Shutdown
 -----------------
@@ -691,7 +545,7 @@ block (or through a direct :meth:`ClientSession.close()` call), the
 underlying connection remains open due to asyncio internal details. In
 practice, the underlying connection will close after a short
 while. However, if the event loop is stopped before the underlying
-connection is closed, a ``ResourceWarning: unclosed transport``
+connection is closed, an ``ResourceWarning: unclosed transport``
 warning is emitted (when warnings are enabled).
 
 To avoid this situation, a small delay must be added before closing
@@ -704,26 +558,26 @@ asyncio.sleep(0)``) will suffice::
         async with aiohttp.ClientSession() as session:
             async with session.get('http://example.org/') as resp:
                 await resp.read()
-        # Zero-sleep to allow underlying connections to close
-        await asyncio.sleep(0)
+
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(read_website())
+    # Zero-sleep to allow underlying connections to close
+    loop.run_until_complete(asyncio.sleep(0))
+    loop.close()
 
 For a :class:`ClientSession` with SSL, the application must wait a
 short duration before closing::
 
     ...
     # Wait 250 ms for the underlying SSL connections to close
-    await asyncio.sleep(0.250)
+    loop.run_until_complete(asyncio.sleep(0.250))
+    loop.close()
 
 Note that the appropriate amount of time to wait will vary from
 application to application.
 
-All of this will eventually become obsolete when the asyncio internals
+All if this will eventually become obsolete when the asyncio internals
 are changed so that aiohttp itself can wait on the underlying
 connection to close. Please follow issue `#1925
 <https://github.com/aio-libs/aiohttp/issues/1925>`_ for the progress
 on this.
-
-HTTP Pipelining
----------------
-
-aiohttp does not support HTTP/HTTPS pipelining.

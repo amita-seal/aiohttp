@@ -16,7 +16,6 @@ The page contains all information about aiohttp Server API:
    Advanced Usage <web_advanced>
    Low Level <web_lowlevel>
    Reference <web_reference>
-   Web Exceptions <web_exceptions>
    Logging <logging>
    Testing <testing>
    Deployment <deployment>
